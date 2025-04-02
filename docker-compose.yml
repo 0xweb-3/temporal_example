@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: opencsg-registry.cn-beijing.cr.aliyuncs.com/opencsg_public/csghub/postgres:15.10
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_MULTIPLE_DATABASES: "starhub_server,mirror,starhub_portal"
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: pg_isready -U postgres -h 127.0.0.1
+      interval: 5s
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    networks:
+      - my_network
+
+  temporal:
+    container_name: temporal
+    depends_on:
+      - postgres
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=postgres
+      - DEFAULT_NAMESPACE_RETENTION=7d
+      - POSTGRES_SEEDS=postgres
+    image: opencsg-registry.cn-beijing.cr.aliyuncs.com/opencsg_public/temporalio/auto-setup:1.25.1
+    networks:
+      - my_network
+    ports:
+      - 7233:7233
+
+  temporal-ui:
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    image: opencsg-registry.cn-beijing.cr.aliyuncs.com/opencsg_public/temporalio/ui:2.30.3
+    networks:
+      - my_network
+    ports:
+      - 8180:8080
+
+networks:
+  my_network:
+    driver: bridge
